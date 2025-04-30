@@ -1,0 +1,35 @@
+name: ithera
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  camera: ^0.10.5+2
+  sqflite:
+  path:
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.2.2
+  google_fonts: ^6.2.1
+  url_launcher: ^6.3.0
+  image_picker: ^1.0.4
+  path_provider: ^2.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/avatar.png
+    - assets/background.png
+    - assets/image.jpg
+    - assets/labels.txt
+    - assets/model.tflite
