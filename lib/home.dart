@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:ithera/profile.dart';
+import 'articles.dart';
 import 'beforetest.dart';
 import 'chatbot.dart';
 import 'services/user_prefs.dart';
 import 'SignInScreen.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher.dart'; // Import the URL package for external links
 import 'database_helper.dart'; // Import DatabaseHelper to fetch user data
 import 'class/users.dart'; // Import User class for type definition
+import 'breathingtest.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  // Static method to launch URLs with error handling
   static Future<void> launchURL(BuildContext context, Uri uri) async {
     try {
       debugPrint('Attempting to launch URL: $uri');
@@ -45,6 +48,7 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
+  // Home Screen UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -52,8 +56,10 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: const Color(0xFFA3C6C4),
         foregroundColor: const Color(0xFF333333),
         title: FutureBuilder<int?>(
+          // Fetch the user ID from UserPrefs
           future: UserPrefs.getUserId(),
           builder: (context, userIdSnapshot) {
+            // Check if the data is still loading
             if (userIdSnapshot.connectionState == ConnectionState.waiting) {
               return const Text(
                 'Loading...',
@@ -64,6 +70,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               );
             }
+            // Check for errors or null data
             if (userIdSnapshot.hasError || userIdSnapshot.data == null) {
               return Text(
                 'Welcome',
@@ -74,8 +81,10 @@ class HomeScreen extends StatelessWidget {
               );
             }
 
+            // Get the user ID
             final userId = userIdSnapshot.data!;
             return FutureBuilder<User?>(
+              // Fetch user data from the database
               future: DatabaseHelper().getUserById(userId),
               builder: (context, userSnapshot) {
                 if (userSnapshot.connectionState == ConnectionState.waiting) {
@@ -88,6 +97,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                   );
                 }
+                // Check for errors or null user data
                 if (userSnapshot.hasError || userSnapshot.data == null) {
                   return Text(
                     'Welcome',
@@ -97,7 +107,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                   );
                 }
-
+                // Get the user object and displays first name
                 final user = userSnapshot.data!;
                 return Text(
                   'Welcome ${user.firstName}',
@@ -110,6 +120,8 @@ class HomeScreen extends StatelessWidget {
             );
           },
         ),
+
+        // The Drawer Widget
         centerTitle: true,
         leading: Builder(
           builder: (context) => IconButton(
@@ -119,6 +131,8 @@ class HomeScreen extends StatelessWidget {
             },
           ),
         ),
+
+        // The profile Widget
         actions: [
           IconButton(
             icon: const Icon(Icons.person),
@@ -130,6 +144,8 @@ class HomeScreen extends StatelessWidget {
             },
           ),
         ],
+
+        // Add a divider below the app bar
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1.0),
           child: Divider(
@@ -138,6 +154,8 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
+
+      // Define the drawer menu
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -157,12 +175,13 @@ class HomeScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.article_sharp, color: Color(0xFF333333)),
               title: Text(
-                "Articles and FAQs",
+                "Online Articles",
                 style: GoogleFonts.roboto(
                   fontSize: 16,
                   color: const Color(0xFF333333),
                 ),
               ),
+              // Navigates to Articles and FAQs Screen
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -171,6 +190,28 @@ class HomeScreen extends StatelessWidget {
                 );
               },
             ),
+
+            // Breathing Test menu item
+            ListTile(
+              leading: const Icon(Icons.air, color: Color(0xFF333333)),
+              title: Text(
+                "Breathing Test",
+                style: GoogleFonts.roboto(
+                  fontSize: 16,
+                  color: const Color(0xFF333333),
+                ),
+              ),
+              // Navigates to BreathingScreen
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => BreathingScreen()),
+                );
+              },
+            ),
+
+            // Locate a near therapist
             ListTile(
               leading: const Icon(Icons.location_on, color: Color(0xFF333333)),
               title: Text(
@@ -185,6 +226,8 @@ class HomeScreen extends StatelessWidget {
                 HomeScreen.launchURL(context, Uri.parse('https://www.google.com/maps/search/?api=1&query=therapist'));
               },
             ),
+
+            // Navigates to sign in Screen
             ListTile(
               leading: const Icon(Icons.logout, color: Color(0xFF333333)),
               title: Text(
@@ -194,6 +237,7 @@ class HomeScreen extends StatelessWidget {
                   color: const Color(0xFF333333),
                 ),
               ),
+              // clears user data and navigates to sign in screen
               onTap: () async {
                 await UserPrefs.clearUserId();
                 await UserPrefs.clearRememberMe();
@@ -207,14 +251,18 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
+
+      // The Body UI
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
+            // The background image
             image: AssetImage('assets/image.jpg'),
             fit: BoxFit.cover,
           ),
         ),
         child: Container(
+          // Overlay with a semi-transparent color
           color: const Color(0xFFF9E8E8).withOpacity(0.8),
           child: Stack(
             children: [
@@ -224,6 +272,7 @@ class HomeScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Center(
+                      // Centers the logo
                       child: ClipOval(
                         child: Image.asset(
                           'assets/avatar.png',
@@ -233,7 +282,9 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    // Empty Space
                     const SizedBox(height: 30),
+                    // "App info" container
                     Container(
                       width: 250,
                       height: 300,
@@ -254,6 +305,7 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 30),
+                    // "Take the test" button
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFA3C6C4),
@@ -281,6 +333,8 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
+
+              // "Chatbot" button position
               Positioned(
                 right: 20,
                 bottom: 30,
@@ -311,133 +365,6 @@ class HomeScreen extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class ArticlesScreen extends StatelessWidget {
-  ArticlesScreen({super.key});
-
-  final List<Map<String, String>> articles = [
-    {
-      'title': 'Depression',
-      'description': 'Learn about the symptoms, causes, and treatments for depression.',
-      'url': 'https://www.mayoclinic.org/diseases-conditions/depression/symptoms-causes/syc-20356007',
-    },
-    {
-      'title': 'ADHD',
-      'description': 'Understand Attention-Deficit/Hyperactivity Disorder and its management.',
-      'url': 'https://chadd.org/about-adhd/overview/',
-    },
-    {
-      'title': 'OCD',
-      'description': 'Explore Obsessive-Compulsive Disorder and available support options.',
-      'url': 'https://iocdf.org/about-ocd/',
-    },
-    {
-      'title': 'Anxiety',
-      'description': 'Discover information on anxiety disorders and coping strategies.',
-      'url': 'https://www.nimh.nih.gov/health/topics/anxiety-disorders',
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9E8E8),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFA3C6C4),
-        foregroundColor: const Color(0xFF333333),
-        title: Text(
-          'Articles and FAQs',
-          style: GoogleFonts.lora(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView.builder(
-          itemCount: articles.length,
-          itemBuilder: (context, index) {
-            final article = articles[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: InkWell(
-                onTap: () => HomeScreen.launchURL(context, Uri.parse(article['url']!)),
-                borderRadius: BorderRadius.circular(16),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFFA3C6C4).withValues(alpha: 0.9),
-                        const Color(0xFFF9E8E8).withValues(alpha: 0.7),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                    border: Border.all(
-                      color: const Color(0xFF333333).withValues(alpha: 0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.article,
-                          color: Color(0xFF333333),
-                          size: 40,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                article['title']!,
-                                style: GoogleFonts.lora(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF333333),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                article['description']!,
-                                style: GoogleFonts.roboto(
-                                  fontSize: 14,
-                                  color: Color(0xFF333333).withValues(alpha: 0.8),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          color: Color(0xFF333333),
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
         ),
       ),
     );

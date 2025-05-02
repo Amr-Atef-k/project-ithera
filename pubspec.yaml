@@ -10,15 +10,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  camera: ^0.10.5+2
-  sqflite:
-  path:
-  cupertino_icons: ^1.0.8
-  shared_preferences: ^2.2.2
-  google_fonts: ^6.2.1
-  url_launcher: ^6.3.0
-  image_picker: ^1.0.4
-  path_provider: ^2.1.1
+  camera: ^0.10.5+2 # Allows access to the device's camera for real-time image capture.
+  sqflite:       # Provides SQLite database support for storing app data locally.
+  path:            # Offers utilities for handling and manipulating file paths.
+  cupertino_icons: ^1.0.8  # Provides Cupertino styled icons for iOS design consistency.
+  shared_preferences: ^2.2.2  # Enables storing simple data types persistently across app launches.
+  google_fonts: ^6.2.1  # To use google fonts
+  url_launcher: ^6.3.0 # Allows launching URLs in the app
+  image_picker: ^1.0.4  # Enables picking images from the gallery
+  path_provider: ^2.1.1  # Provides platform-aware locations for storing app-specific files.
 
 dev_dependencies:
   flutter_test:

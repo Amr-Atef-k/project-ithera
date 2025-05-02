@@ -1,3 +1,4 @@
+// Import necessary Flutter and external packages
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'SignUpScreen.dart';
@@ -5,6 +6,7 @@ import 'database_helper.dart';
 import 'services/user_prefs.dart';
 import 'home.dart';
 
+// StatefulWidget for the Sign In screen
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
 
@@ -13,18 +15,25 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  // Controllers to handle input for email and password
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  // State variables for 'Remember Me' checkbox and password visibility
   bool _rememberMe = false;
-  bool _obscurePassword = true; // State for show/hide password
+  bool _obscurePassword = true;
+
+  // Key used to validate the form
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
+    // Load saved email/password if 'Remember Me' was previously enabled
     _loadSavedCredentials();
   }
 
+  // Load credentials if 'Remember Me' is true
   Future<void> _loadSavedCredentials() async {
     final rememberMe = await UserPrefs.getRememberMe();
     if (rememberMe) {
@@ -40,6 +49,7 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
+  // Sign in logic
   Future<void> _signIn() async {
     if (_formKey.currentState!.validate()) {
       final dbHelper = DatabaseHelper();
@@ -47,6 +57,8 @@ class _SignInScreenState extends State<SignInScreen> {
         _emailController.text,
         _passwordController.text,
       );
+
+      // If user is found, navigate to HomeScreen and optionally save credentials
       if (user != null) {
         await UserPrefs.saveUserId(user.id!);
         await UserPrefs.saveRememberMe(
@@ -60,6 +72,7 @@ class _SignInScreenState extends State<SignInScreen> {
               (route) => false,
         );
       } else {
+        // If user not found, show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Invalid email or password')),
         );
@@ -67,6 +80,7 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
+  // Clean up controllers when widget is disposed
   @override
   void dispose() {
     _emailController.dispose();
@@ -77,9 +91,9 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      extendBody: true,
-      resizeToAvoidBottomInset: false,
+      extendBodyBehindAppBar: true, // Allow body to go behind app bar
+      extendBody: true, // Extend body into system UI areas
+      resizeToAvoidBottomInset: false, // Prevent resizing when keyboard shows
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -96,13 +110,13 @@ class _SignInScreenState extends State<SignInScreen> {
         padding: EdgeInsets.only(
           left: 16.0,
           right: 16.0,
-          top: MediaQuery.of(context).padding.top + 20.0, // Account for status bar
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20.0,
+          top: MediaQuery.of(context).padding.top + 20.0, // Avoid status bar
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20.0, // Avoid keyboard
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(height: 40), // Push content lower
+            SizedBox(height: 40), // Pushes content downward
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -113,7 +127,7 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
               child: ClipOval(
                 child: Image.asset(
-                  'assets/avatar.png',
+                  'assets/avatar.png', // User avatar image
                   height: 140,
                   width: 140,
                   fit: BoxFit.cover,
@@ -135,6 +149,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     ),
                   ),
                   SizedBox(height: 20),
+                  // Email Input Field
                   TextFormField(
                     controller: _emailController,
                     decoration: InputDecoration(
@@ -160,6 +175,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     },
                   ),
                   SizedBox(height: 20),
+                  // Password Input Field
                   TextFormField(
                     controller: _passwordController,
                     decoration: InputDecoration(
@@ -172,6 +188,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       ),
                       filled: true,
                       fillColor: Colors.white.withOpacity(0.9),
+                      // Toggle show/hide password
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility : Icons.visibility_off,
@@ -193,6 +210,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     },
                   ),
                   SizedBox(height: 20),
+                  // Remember Me Checkbox
                   Row(
                     children: [
                       Checkbox(
@@ -214,6 +232,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     ],
                   ),
                   SizedBox(height: 20),
+                  // Sign In Button
                   ElevatedButton(
                     onPressed: _signIn,
                     style: ElevatedButton.styleFrom(
@@ -233,6 +252,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     ),
                   ),
                   SizedBox(height: 20),
+                  // Navigate to Sign Up screen
                   TextButton(
                     onPressed: () {
                       Navigator.push(
