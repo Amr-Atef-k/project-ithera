@@ -6,10 +6,12 @@ import 'beforetest.dart';
 import 'chatbot.dart';
 import 'services/user_prefs.dart';
 import 'SignInScreen.dart';
-import 'package:url_launcher/url_launcher.dart'; // Import the URL package for external links
-import 'database_helper.dart'; // Import DatabaseHelper to fetch user data
-import 'class/users.dart'; // Import User class for type definition
+import 'package:url_launcher/url_launcher.dart';
+import 'database_helper.dart';
+import 'class/users.dart';
 import 'breathingtest.dart';
+import 'soothing_sounds.dart';
+import 'videos.dart'; // Import the new VideosScreen
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -56,10 +58,8 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: const Color(0xFFA3C6C4),
         foregroundColor: const Color(0xFF333333),
         title: FutureBuilder<int?>(
-          // Fetch the user ID from UserPrefs
           future: UserPrefs.getUserId(),
           builder: (context, userIdSnapshot) {
-            // Check if the data is still loading
             if (userIdSnapshot.connectionState == ConnectionState.waiting) {
               return const Text(
                 'Loading...',
@@ -70,7 +70,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               );
             }
-            // Check for errors or null data
             if (userIdSnapshot.hasError || userIdSnapshot.data == null) {
               return Text(
                 'Welcome',
@@ -81,10 +80,8 @@ class HomeScreen extends StatelessWidget {
               );
             }
 
-            // Get the user ID
             final userId = userIdSnapshot.data!;
             return FutureBuilder<User?>(
-              // Fetch user data from the database
               future: DatabaseHelper().getUserById(userId),
               builder: (context, userSnapshot) {
                 if (userSnapshot.connectionState == ConnectionState.waiting) {
@@ -97,7 +94,6 @@ class HomeScreen extends StatelessWidget {
                     ),
                   );
                 }
-                // Check for errors or null user data
                 if (userSnapshot.hasError || userSnapshot.data == null) {
                   return Text(
                     'Welcome',
@@ -107,7 +103,6 @@ class HomeScreen extends StatelessWidget {
                     ),
                   );
                 }
-                // Get the user object and displays first name
                 final user = userSnapshot.data!;
                 return Text(
                   'Welcome ${user.firstName}',
@@ -120,8 +115,6 @@ class HomeScreen extends StatelessWidget {
             );
           },
         ),
-
-        // The Drawer Widget
         centerTitle: true,
         leading: Builder(
           builder: (context) => IconButton(
@@ -131,8 +124,6 @@ class HomeScreen extends StatelessWidget {
             },
           ),
         ),
-
-        // The profile Widget
         actions: [
           IconButton(
             icon: const Icon(Icons.person),
@@ -144,8 +135,6 @@ class HomeScreen extends StatelessWidget {
             },
           ),
         ],
-
-        // Add a divider below the app bar
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1.0),
           child: Divider(
@@ -154,8 +143,6 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
-
-      // Define the drawer menu
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -164,11 +151,14 @@ class HomeScreen extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: Color(0xFFA3C6C4),
               ),
-              child: Text(
-                "Menu",
-                style: GoogleFonts.lora(
-                  color: const Color(0xFF333333),
-                  fontSize: 24,
+              child: Center(
+                child: Text(
+                  "Menu",
+                  style: GoogleFonts.lora(
+                    color: const Color(0xFF333333),
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -181,7 +171,6 @@ class HomeScreen extends StatelessWidget {
                   color: const Color(0xFF333333),
                 ),
               ),
-              // Navigates to Articles and FAQs Screen
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -190,8 +179,23 @@ class HomeScreen extends StatelessWidget {
                 );
               },
             ),
-
-            // Breathing Test menu item
+            ListTile(
+              leading: const Icon(Icons.video_library, color: Color(0xFF333333)),
+              title: Text(
+                "Online Videos",
+                style: GoogleFonts.roboto(
+                  fontSize: 16,
+                  color: const Color(0xFF333333),
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => VideosScreen()),
+                );
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.air, color: Color(0xFF333333)),
               title: Text(
@@ -201,7 +205,6 @@ class HomeScreen extends StatelessWidget {
                   color: const Color(0xFF333333),
                 ),
               ),
-              // Navigates to BreathingScreen
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -210,8 +213,23 @@ class HomeScreen extends StatelessWidget {
                 );
               },
             ),
-
-            // Locate a near therapist
+            ListTile(
+              leading: const Icon(Icons.music_note, color: Color(0xFF333333)),
+              title: Text(
+                "Soothing Sounds",
+                style: GoogleFonts.roboto(
+                  fontSize: 16,
+                  color: const Color(0xFF333333),
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SoothingSoundsScreen()),
+                );
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.location_on, color: Color(0xFF333333)),
               title: Text(
@@ -226,8 +244,6 @@ class HomeScreen extends StatelessWidget {
                 HomeScreen.launchURL(context, Uri.parse('https://www.google.com/maps/search/?api=1&query=therapist'));
               },
             ),
-
-            // Navigates to sign in Screen
             ListTile(
               leading: const Icon(Icons.logout, color: Color(0xFF333333)),
               title: Text(
@@ -237,7 +253,6 @@ class HomeScreen extends StatelessWidget {
                   color: const Color(0xFF333333),
                 ),
               ),
-              // clears user data and navigates to sign in screen
               onTap: () async {
                 await UserPrefs.clearUserId();
                 await UserPrefs.clearRememberMe();
@@ -251,18 +266,14 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
-
-      // The Body UI
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            // The background image
             image: AssetImage('assets/image.jpg'),
             fit: BoxFit.cover,
           ),
         ),
         child: Container(
-          // Overlay with a semi-transparent color
           color: const Color(0xFFF9E8E8).withOpacity(0.8),
           child: Stack(
             children: [
@@ -272,19 +283,16 @@ class HomeScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Center(
-                      // Centers the logo
                       child: ClipOval(
                         child: Image.asset(
                           'assets/avatar.png',
-                          height: 100,
-                          width: 100,
+                          height: 150, // Increased from 100 to 150
+                          width: 150, // Increased from 100 to 150
                           fit: BoxFit.cover,
                         ),
                       ),
                     ),
-                    // Empty Space
                     const SizedBox(height: 30),
-                    // "App info" container
                     Container(
                       width: 250,
                       height: 300,
@@ -305,7 +313,6 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 30),
-                    // "Take the test" button
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFA3C6C4),
@@ -333,8 +340,6 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // "Chatbot" button position
               Positioned(
                 right: 20,
                 bottom: 30,
