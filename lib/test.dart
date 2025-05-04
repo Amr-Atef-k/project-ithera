@@ -98,6 +98,7 @@ class _TestPageState extends State<TestPage> {
           .split('\n')
           .map((line) => line.trim())
           .where((label) => label.isNotEmpty)
+          .map((label) => label.replaceAll(RegExp(r'^\d+\s*'), '')) // Remove leading numbers
           .toList();
       print('Loaded labels: $_emotionLabels');
     } catch (e) {
@@ -158,9 +159,8 @@ class _TestPageState extends State<TestPage> {
         return;
       }
 
-      // Preprocess image: convert to grayscale, resize to 48x48, normalize
-      final grayscaleImage = img.grayscale(capturedImage);
-      final resizedImage = img.copyResize(grayscaleImage, width: 48, height: 48);
+      // Resize to 224x224, keep RGB channels
+      final resizedImage = img.copyResize(capturedImage, width: 224, height: 224);
       final imageBytes = _preprocessImage(resizedImage);
 
       // Run inference
@@ -178,28 +178,66 @@ class _TestPageState extends State<TestPage> {
     }
   }
 
-  // Preprocesses the image for model input (48x48 grayscale)
+  // Preprocesses the image for model input (224x224 RGB)
   Float32List _preprocessImage(img.Image image) {
-    final input = Float32List(48 * 48);
+    final input = Float32List(224 * 224 * 3);
     int pixelIndex = 0;
-    for (int y = 0; y < 48; y++) {
-      for (int x = 0; x < 48; x++) {
+    for (int y = 0; y < 224; y++) {
+      for (int x = 0; x < 224; x++) {
         final pixel = image.getPixel(x, y);
-        input[pixelIndex++] = pixel.r / 255.0; // Grayscale value normalized to [0, 1]
+        // Normalize to [0, 1] for R, G, B channels
+        input[pixelIndex++] = pixel.r / 255.0; // Red
+        input[pixelIndex++] = pixel.g / 255.0; // Green
+        input[pixelIndex++] = pixel.b / 255.0; // Blue
+        // Alternative normalization: [-1, 1]
+        // input[pixelIndex++] = (pixel.r / 127.5) - 1.0;
+        // input[pixelIndex++] = (pixel.g / 127.5) - 1.0;
+        // input[pixelIndex++] = (pixel.b / 127.5) - 1.0;
+        // Alternative normalization: [0, 255]
+        // input[pixelIndex++] = pixel.r.toDouble();
+        // input[pixelIndex++] = pixel.g.toDouble();
+        // input[pixelIndex++] = pixel.b.toDouble();
       }
     }
+    // Log a sample of input values to check normalization
+    print('Sample input values: ${input.sublist(0, 10).toList()}');
     return input;
   }
 
   // Runs inference on the preprocessed image
   Future<String> _runInference(Float32List input) async {
-    if (_interpreter == null) return 'Model not loaded';
-    if (_emotionLabels.isEmpty) return 'Labels not loaded';
+    if (_interpreter == null) {
+      print('Inference error: Model not loaded');
+      return 'Model not loaded';
+    }
+    if (_emotionLabels.isEmpty) {
+      print('Inference error: Labels not loaded');
+      return 'Labels not loaded';
+    }
 
     try {
       // Prepare input and output tensors
-      final inputTensor = input.reshape([1, 48, 48, 1]);
+      final inputTensor = input.reshape([1, 224, 224, 3]);
       final outputTensor = List.filled(1 * _emotionLabels.length, 0.0).reshape([1, _emotionLabels.length]);
+
+      // Validate tensor shapes
+      final expectedInputShape = _interpreter!.getInputTensor(0).shape;
+      final expectedOutputShape = _interpreter!.getOutputTensor(0).shape;
+      print('Expected input shape: $expectedInputShape');
+      print('Actual input shape: ${inputTensor.shape}');
+      print('Expected output shape: $expectedOutputShape');
+      print('Actual output shape: ${outputTensor.shape}');
+
+      // Compare shapes directly
+      const requiredInputShape = [1, 224, 224, 3];
+      if (!expectedInputShape.asMap().entries.every((e) => e.value == requiredInputShape[e.key])) {
+        print('Inference error: Input shape mismatch. Expected $requiredInputShape, got $expectedInputShape');
+        return 'Input shape mismatch';
+      }
+      if (expectedOutputShape[1] != _emotionLabels.length) {
+        print('Inference error: Output shape mismatch. Expected [1, ${_emotionLabels.length}], got $expectedOutputShape');
+        return 'Output shape mismatch';
+      }
 
       // Run inference
       _interpreter!.run(inputTensor, outputTensor);
@@ -214,9 +252,11 @@ class _TestPageState extends State<TestPage> {
         }
       }
 
+      print('Inference successful: Emotion = ${_emotionLabels[maxIndex]}, Probability = $maxProb');
       return _emotionLabels[maxIndex];
-    } catch (e) {
-      print('Error running inference: $e');
+    } catch (e, stackTrace) {
+      print('Inference error: $e');
+      print('Stack trace: $stackTrace');
       return 'Inference error';
     }
   }
