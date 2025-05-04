@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:image/image.dart' as img;
+import 'package:flutter/services.dart' show rootBundle;
 import 'services/storage_service.dart';
 import 'services/user_prefs.dart';
 import 'database_helper.dart';
@@ -23,6 +28,12 @@ class _TestPageState extends State<TestPage> {
   late CameraController _cameraController; // Controls the front-facing camera
   bool _isCameraInitialized = false; // Tracks camera initialization status
   bool _isControllerDisposed = false; // Tracks if camera controller is disposed
+
+  Interpreter? _interpreter; // TensorFlow Lite interpreter for emotion model
+  List<String> _emotionLabels = []; // Stores emotion labels from labels.txt
+  String _emotion = '______'; // Stores the predicted emotion
+  Timer? _frameProcessingTimer; // Timer for processing frames every 0.5 seconds
+  bool _isProcessingFrame = false; // Prevents overlapping frame processing
 
   int _currentQuestionIndex = 0; // Tracks the current question being displayed
   List<String?> _selectedAnswers = []; // Stores user-selected answers
@@ -64,26 +75,149 @@ class _TestPageState extends State<TestPage> {
     super.initState();
     // Initialize answers list with null for all 18 questions
     _selectedAnswers = List<String?>.filled(_questions.length, null);
-    // Set up camera for emotion detection
+    // Set up camera and emotion detection
     _initializeCamera();
+    // Load TensorFlow Lite model and labels
+    _loadTFLiteModelAndLabels();
     // Load the last saved result from storage
     _loadLastResult();
   }
 
-  // Initializes the front-facing camera
-  void _initializeCamera() async {
+  // Loads the TensorFlow Lite model and emotion labels
+  Future<void> _loadTFLiteModelAndLabels() async {
+    try {
+      // Load model
+      _interpreter = await Interpreter.fromAsset('assets/model.tflite');
+      print('Model loaded successfully');
+      print('Input shape: ${_interpreter!.getInputTensor(0).shape}');
+      print('Output shape: ${_interpreter!.getOutputTensor(0).shape}');
+
+      // Load labels
+      final labelsData = await rootBundle.loadString('assets/labels.txt');
+      _emotionLabels = labelsData
+          .split('\n')
+          .map((line) => line.trim())
+          .where((label) => label.isNotEmpty)
+          .toList();
+      print('Loaded labels: $_emotionLabels');
+    } catch (e) {
+      print('Error loading model or labels: $e');
+      setState(() {
+        _emotion = 'Error loading model';
+      });
+    }
+  }
+
+  // Initializes the front-facing camera and starts frame processing
+  Future<void> _initializeCamera() async {
     _cameraController = CameraController(
       widget.cameras.firstWhere(
               (camera) => camera.lensDirection == CameraLensDirection.front),
       ResolutionPreset.medium,
     );
 
-    await _cameraController.initialize();
+    try {
+      await _cameraController.initialize();
+    } catch (e) {
+      print('Error initializing camera: $e');
+      setState(() {
+        _isCameraInitialized = false;
+        _emotion = 'Camera error';
+      });
+      return;
+    }
 
     if (mounted) {
       setState(() {
         _isCameraInitialized = true; // Update UI once camera is ready
       });
+
+      // Start processing frames every 0.5 seconds
+      _frameProcessingTimer = Timer.periodic(
+        const Duration(milliseconds: 500),
+            (_) => _processCameraFrame(),
+      );
+    }
+  }
+
+  // Processes a single camera frame for emotion detection
+  Future<void> _processCameraFrame() async {
+    if (_isProcessingFrame || _isControllerDisposed || !mounted || !_isCameraInitialized) {
+      return;
+    }
+
+    _isProcessingFrame = true;
+    try {
+      final image = await _cameraController.takePicture();
+      final bytes = await image.readAsBytes();
+      final img.Image? capturedImage = img.decodeImage(bytes);
+      if (capturedImage == null) {
+        setState(() {
+          _emotion = 'Error decoding image';
+        });
+        return;
+      }
+
+      // Preprocess image: convert to grayscale, resize to 48x48, normalize
+      final grayscaleImage = img.grayscale(capturedImage);
+      final resizedImage = img.copyResize(grayscaleImage, width: 48, height: 48);
+      final imageBytes = _preprocessImage(resizedImage);
+
+      // Run inference
+      final emotion = await _runInference(imageBytes);
+      setState(() {
+        _emotion = emotion;
+      });
+    } catch (e) {
+      print('Error processing frame: $e');
+      setState(() {
+        _emotion = 'Error';
+      });
+    } finally {
+      _isProcessingFrame = false;
+    }
+  }
+
+  // Preprocesses the image for model input (48x48 grayscale)
+  Float32List _preprocessImage(img.Image image) {
+    final input = Float32List(48 * 48);
+    int pixelIndex = 0;
+    for (int y = 0; y < 48; y++) {
+      for (int x = 0; x < 48; x++) {
+        final pixel = image.getPixel(x, y);
+        input[pixelIndex++] = pixel.r / 255.0; // Grayscale value normalized to [0, 1]
+      }
+    }
+    return input;
+  }
+
+  // Runs inference on the preprocessed image
+  Future<String> _runInference(Float32List input) async {
+    if (_interpreter == null) return 'Model not loaded';
+    if (_emotionLabels.isEmpty) return 'Labels not loaded';
+
+    try {
+      // Prepare input and output tensors
+      final inputTensor = input.reshape([1, 48, 48, 1]);
+      final outputTensor = List.filled(1 * _emotionLabels.length, 0.0).reshape([1, _emotionLabels.length]);
+
+      // Run inference
+      _interpreter!.run(inputTensor, outputTensor);
+
+      // Find the index with the highest probability
+      double maxProb = -1;
+      int maxIndex = 0;
+      for (int i = 0; i < _emotionLabels.length; i++) {
+        if (outputTensor[0][i] > maxProb) {
+          maxProb = outputTensor[0][i];
+          maxIndex = i;
+        }
+      }
+
+      return _emotionLabels[maxIndex];
+    } catch (e) {
+      print('Error running inference: $e');
+      return 'Inference error';
     }
   }
 
@@ -175,7 +309,8 @@ class _TestPageState extends State<TestPage> {
       );
     }
 
-    // Mark controller as disposed and update UI
+    // Stop frame processing and mark controller as disposed
+    _frameProcessingTimer?.cancel();
     setState(() {
       _isControllerDisposed = true;
     });
@@ -211,6 +346,7 @@ class _TestPageState extends State<TestPage> {
           ),
           TextButton(
             onPressed: () async {
+              _frameProcessingTimer?.cancel();
               setState(() {
                 _isControllerDisposed = true;
               });
@@ -249,6 +385,8 @@ class _TestPageState extends State<TestPage> {
 
   @override
   void dispose() {
+    _frameProcessingTimer?.cancel();
+    _interpreter?.close();
     if (!_isControllerDisposed) {
       _cameraController.dispose(); // Clean up camera resources
     }
@@ -318,7 +456,7 @@ class _TestPageState extends State<TestPage> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Emotion: ______', // Placeholder for emotion detection output
+              'Emotion: $_emotion', // Display predicted emotion
               style: GoogleFonts.roboto(
                 fontSize: 16,
                 color: const Color(0xFF333333),
