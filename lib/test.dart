@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' show Size;
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'services/storage_service.dart';
 import 'services/user_prefs.dart';
 import 'database_helper.dart';
@@ -34,6 +36,10 @@ class _TestPageState extends State<TestPage> {
   String _emotion = '______'; // Stores the predicted emotion
   Timer? _frameProcessingTimer; // Timer for processing frames every 0.5 seconds
   bool _isProcessingFrame = false; // Prevents overlapping frame processing
+
+  FaceDetector? _faceDetector; // Google ML Kit face detector
+  bool _hasFace = false; // Tracks if a face is detected
+  Rect? _faceBoundingBox; // Stores the bounding box of the detected face
 
   int _currentQuestionIndex = 0; // Tracks the current question being displayed
   List<String?> _selectedAnswers = []; // Stores user-selected answers
@@ -79,8 +85,21 @@ class _TestPageState extends State<TestPage> {
     _initializeCamera();
     // Load TensorFlow Lite model and labels
     _loadTFLiteModelAndLabels();
+    // Initialize face detector
+    _initializeFaceDetector();
     // Load the last saved result from storage
     _loadLastResult();
+  }
+
+  // Initializes the Google ML Kit face detector
+  void _initializeFaceDetector() {
+    _faceDetector = FaceDetector(
+      options: FaceDetectorOptions(
+        enableContours: false, // Disable contours for faster processing
+        enableLandmarks: false, // Disable landmarks for simplicity
+        enableClassification: false, // No need for smile/eye detection
+      ),
+    );
   }
 
   // Loads the TensorFlow Lite model and emotion labels
@@ -114,7 +133,7 @@ class _TestPageState extends State<TestPage> {
     _cameraController = CameraController(
       widget.cameras.firstWhere(
               (camera) => camera.lensDirection == CameraLensDirection.front),
-      ResolutionPreset.medium,
+      ResolutionPreset.high, // Changed to high for better face detection
     );
 
     try {
@@ -141,7 +160,7 @@ class _TestPageState extends State<TestPage> {
     }
   }
 
-  // Processes a single camera frame for emotion detection
+  // Processes a single camera frame for face and emotion detection
   Future<void> _processCameraFrame() async {
     if (_isProcessingFrame || _isControllerDisposed || !mounted || !_isCameraInitialized) {
       return;
@@ -155,15 +174,36 @@ class _TestPageState extends State<TestPage> {
       if (capturedImage == null) {
         setState(() {
           _emotion = 'Error decoding image';
+          _hasFace = false;
+          _faceBoundingBox = null;
         });
         return;
       }
+
+      // Create InputImage for face detection
+      final inputImage = InputImage.fromFilePath(image.path);
+      final faces = await _faceDetector!.processImage(inputImage);
+
+      if (faces.isEmpty) {
+        setState(() {
+          _hasFace = false;
+          _emotion = '______';
+          _faceBoundingBox = null;
+        });
+        return;
+      }
+
+      // Face detected, store bounding box and proceed with emotion detection
+      setState(() {
+        _hasFace = true;
+        _faceBoundingBox = faces.first.boundingBox; // Use the first detected face
+      });
 
       // Resize to 224x224, keep RGB channels
       final resizedImage = img.copyResize(capturedImage, width: 224, height: 224);
       final imageBytes = _preprocessImage(resizedImage);
 
-      // Run inference
+      // Run emotion inference
       final emotion = await _runInference(imageBytes);
       setState(() {
         _emotion = emotion;
@@ -172,6 +212,8 @@ class _TestPageState extends State<TestPage> {
       print('Error processing frame: $e');
       setState(() {
         _emotion = 'Error';
+        _hasFace = false;
+        _faceBoundingBox = null;
       });
     } finally {
       _isProcessingFrame = false;
@@ -189,14 +231,6 @@ class _TestPageState extends State<TestPage> {
         input[pixelIndex++] = pixel.r / 255.0; // Red
         input[pixelIndex++] = pixel.g / 255.0; // Green
         input[pixelIndex++] = pixel.b / 255.0; // Blue
-        // Alternative normalization: [-1, 1]
-        // input[pixelIndex++] = (pixel.r / 127.5) - 1.0;
-        // input[pixelIndex++] = (pixel.g / 127.5) - 1.0;
-        // input[pixelIndex++] = (pixel.b / 127.5) - 1.0;
-        // Alternative normalization: [0, 255]
-        // input[pixelIndex++] = pixel.r.toDouble();
-        // input[pixelIndex++] = pixel.g.toDouble();
-        // input[pixelIndex++] = pixel.b.toDouble();
       }
     }
     // Log a sample of input values to check normalization
@@ -427,6 +461,7 @@ class _TestPageState extends State<TestPage> {
   void dispose() {
     _frameProcessingTimer?.cancel();
     _interpreter?.close();
+    _faceDetector?.close(); // Dispose of face detector
     if (!_isControllerDisposed) {
       _cameraController.dispose(); // Clean up camera resources
     }
@@ -469,10 +504,10 @@ class _TestPageState extends State<TestPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Camera preview for emotion detection, only if not disposed
+            // Camera preview with face bounding box overlay
             Container(
               width: double.infinity,
-              height: 200,
+              height: 200, // Fixed height to maintain layout consistency
               decoration: BoxDecoration(
                 border: Border.all(color: const Color(0xFF333333)),
                 borderRadius: BorderRadius.circular(8),
@@ -491,15 +526,53 @@ class _TestPageState extends State<TestPage> {
                     ),
                   ),
                 )
-                    : CameraPreview(_cameraController),
+                    : FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _cameraController.value.previewSize?.height ?? 200,
+                    height: _cameraController.value.previewSize?.width ?? 200,
+                    child: Stack(
+                      children: [
+                        CameraPreview(_cameraController),
+                        if (_hasFace && _faceBoundingBox != null)
+                          CustomPaint(
+                            painter: FaceOverlayPainter(
+                              boundingBox: _faceBoundingBox!,
+                              imageSize: Size(
+                                _cameraController.value.previewSize!.height,
+                                _cameraController.value.previewSize!.width,
+                              ),
+                              widgetSize: Size(
+                                _cameraController.value.previewSize!.height,
+                                _cameraController.value.previewSize!.width,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 20),
             Text(
-              'Emotion: $_emotion', // Display predicted emotion
+              'Emotion: $_emotion', // Display predicted emotion or '______'
               style: GoogleFonts.roboto(
                 fontSize: 16,
                 color: const Color(0xFF333333),
+              ),
+            ),
+            // Reserve space for "No face detected" text without shifting layout
+            SizedBox(
+              height: 20, // Fixed height to reserve space
+              child: _hasFace
+                  ? const SizedBox.shrink() // Hide when face is detected
+                  : Text(
+                'No face detected',
+                style: GoogleFonts.roboto(
+                  fontSize: 16,
+                  color: Colors.red,
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -617,7 +690,7 @@ class _TestPageState extends State<TestPage> {
                       backgroundColor: const Color(0xFFA3C6C4),
                       foregroundColor: const Color(0xFF333333),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     child: Text(
@@ -631,5 +704,56 @@ class _TestPageState extends State<TestPage> {
         ),
       ),
     );
+  }
+}
+
+// Custom painter to draw a red square around the detected face
+class FaceOverlayPainter extends CustomPainter {
+  final Rect boundingBox;
+  final Size imageSize;
+  final Size widgetSize;
+
+  FaceOverlayPainter({
+    required this.boundingBox,
+    required this.imageSize,
+    required this.widgetSize,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    // Calculate scaling factors to map image coordinates to widget coordinates
+    final double scaleX = widgetSize.width / imageSize.width;
+    final double scaleY = widgetSize.height / imageSize.height;
+
+    // Adjust bounding box for front-facing camera (mirrored horizontally)
+    final adjustedRect = Rect.fromLTRB(
+      imageSize.width - boundingBox.right, // Mirror horizontally
+      boundingBox.top,
+      imageSize.width - boundingBox.left,
+      boundingBox.bottom,
+    );
+
+    // Scale the bounding box to widget size
+    final scaledRect = Rect.fromLTRB(
+      adjustedRect.left * scaleX,
+      adjustedRect.top * scaleY,
+      adjustedRect.right * scaleX,
+      adjustedRect.bottom * scaleY,
+    );
+
+    // Draw the rectangle
+    canvas.drawRect(scaledRect, paint);
+  }
+
+  @override
+  bool shouldRepaint(FaceOverlayPainter oldDelegate) {
+    return oldDelegate.boundingBox != boundingBox ||
+        oldDelegate.imageSize != imageSize ||
+        oldDelegate.widgetSize != widgetSize;
   }
 }
