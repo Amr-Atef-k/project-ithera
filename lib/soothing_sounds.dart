@@ -21,7 +21,7 @@ class _SoothingSoundsScreenState extends State<SoothingSoundsScreen> {
       'background': 'assets/ocean.jfif',
     },
     {
-      'name': 'Forest Ambience',
+      'name': 'Forest',
       'path': 'sounds/forest_ambience.m4a',
       'background': 'assets/forest.jfif',
     },
@@ -36,7 +36,7 @@ class _SoothingSoundsScreenState extends State<SoothingSoundsScreen> {
       'background': 'assets/chimes.jpg',
     },
     {
-      'name': 'Bird Songs',
+      'name': 'Birds',
       'path': 'sounds/bird_song.m4a',
       'background': 'assets/bird.jfif',
     },

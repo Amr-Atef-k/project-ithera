@@ -98,11 +98,11 @@ class _ChatbotState extends State<Chatbot> {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: const Color(0xFF333333),
-                  width: 3.0,
+                  width: 1.0,
                 ),
               ),
               child: CircleAvatar(
-                radius: 40,
+                radius: 50,
                 backgroundImage: AssetImage('assets/avatar.png'),
                 backgroundColor: Colors.grey[200],
               ),
@@ -114,7 +114,6 @@ class _ChatbotState extends State<Chatbot> {
               child: Container(
                 padding: const EdgeInsets.all(8.0),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

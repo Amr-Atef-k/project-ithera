@@ -24,7 +24,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFFFFFFF), // Match background color (white)
+      backgroundColor: Color(0xFFF6F0F4),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -36,7 +36,7 @@ class _SplashScreenState extends State<SplashScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Color(0xFFF26395), // Match pink color
+                  color: Color(0xFFA3C6C4), // Match pink color
                   width: 2, // Adjust border width as needed
                 ),
               ),
@@ -63,7 +63,7 @@ class _SplashScreenState extends State<SplashScreen> {
             SizedBox(
               width: 200, // Adjust width as needed
               child: LinearProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF26395)), // Match pink color
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA3C6C4)), // Match pink color
                 backgroundColor: Colors.grey[200], // Adjust background color as needed
               ),
             ),

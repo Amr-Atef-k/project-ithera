@@ -34,7 +34,8 @@ class _TestPageState extends State<TestPage> {
   Interpreter? _interpreter; // TensorFlow Lite interpreter for emotion model
   List<String> _emotionLabels = []; // Stores emotion labels from labels.txt
   String _emotion = '______'; // Stores the predicted emotion
-  Timer? _frameProcessingTimer; // Timer for processing frames every 0.5 seconds
+  int _emotionPercentage = 0; // Stores the percentage of the predicted emotion
+  Timer? _frameProcessingTimer; // Timer for processing frames every 0.25 seconds
   bool _isProcessingFrame = false; // Prevents overlapping frame processing
 
   FaceDetector? _faceDetector; // Google ML Kit face detector
@@ -152,9 +153,9 @@ class _TestPageState extends State<TestPage> {
         _isCameraInitialized = true; // Update UI once camera is ready
       });
 
-      // Start processing frames every 0.5 seconds
+      // Start processing frames every 0.25 seconds
       _frameProcessingTimer = Timer.periodic(
-        const Duration(milliseconds: 500),
+        const Duration(milliseconds: 250), // Changed from 500ms to 250ms
             (_) => _processCameraFrame(),
       );
     }
@@ -188,6 +189,7 @@ class _TestPageState extends State<TestPage> {
         setState(() {
           _hasFace = false;
           _emotion = '______';
+          _emotionPercentage = 0;
           _faceBoundingBox = null;
         });
         return;
@@ -204,14 +206,16 @@ class _TestPageState extends State<TestPage> {
       final imageBytes = _preprocessImage(resizedImage);
 
       // Run emotion inference
-      final emotion = await _runInference(imageBytes);
+      final result = await _runInference(imageBytes);
       setState(() {
-        _emotion = emotion;
+        _emotion = result['emotion']!;
+        _emotionPercentage = result['percentage']!;
       });
     } catch (e) {
       print('Error processing frame: $e');
       setState(() {
         _emotion = 'Error';
+        _emotionPercentage = 0;
         _hasFace = false;
         _faceBoundingBox = null;
       });
@@ -239,14 +243,14 @@ class _TestPageState extends State<TestPage> {
   }
 
   // Runs inference on the preprocessed image
-  Future<String> _runInference(Float32List input) async {
+  Future<Map<String, dynamic>> _runInference(Float32List input) async {
     if (_interpreter == null) {
       print('Inference error: Model not loaded');
-      return 'Model not loaded';
+      return {'emotion': 'Model not loaded', 'percentage': 0};
     }
     if (_emotionLabels.isEmpty) {
       print('Inference error: Labels not loaded');
-      return 'Labels not loaded';
+      return {'emotion': 'Labels not loaded', 'percentage': 0};
     }
 
     try {
@@ -266,15 +270,19 @@ class _TestPageState extends State<TestPage> {
       const requiredInputShape = [1, 224, 224, 3];
       if (!expectedInputShape.asMap().entries.every((e) => e.value == requiredInputShape[e.key])) {
         print('Inference error: Input shape mismatch. Expected $requiredInputShape, got $expectedInputShape');
-        return 'Input shape mismatch';
+        return {'emotion': 'Input shape mismatch', 'percentage': 0};
       }
       if (expectedOutputShape[1] != _emotionLabels.length) {
         print('Inference error: Output shape mismatch. Expected [1, ${_emotionLabels.length}], got $expectedOutputShape');
-        return 'Output shape mismatch';
+        return {'emotion': 'Output shape mismatch', 'percentage': 0};
       }
 
       // Run inference
       _interpreter!.run(inputTensor, outputTensor);
+
+      // Log the probabilities for debugging
+      final probabilities = outputTensor[0].map((prob) => prob.toStringAsFixed(4)).toList();
+      print('Probabilities: ${_emotionLabels.asMap().entries.map((e) => "${e.value}: ${probabilities[e.key]}").join(", ")}');
 
       // Find the index with the highest probability
       double maxProb = -1;
@@ -286,12 +294,15 @@ class _TestPageState extends State<TestPage> {
         }
       }
 
-      print('Inference successful: Emotion = ${_emotionLabels[maxIndex]}, Probability = $maxProb');
-      return _emotionLabels[maxIndex];
+      // Convert probability to integer percentage
+      final percentage = (maxProb * 100).round();
+
+      print('Inference successful: Emotion = ${_emotionLabels[maxIndex]}, Probability = $maxProb, Percentage = $percentage%');
+      return {'emotion': _emotionLabels[maxIndex], 'percentage': percentage};
     } catch (e, stackTrace) {
       print('Inference error: $e');
       print('Stack trace: $stackTrace');
-      return 'Inference error';
+      return {'emotion': 'Inference error', 'percentage': 0};
     }
   }
 
@@ -556,7 +567,7 @@ class _TestPageState extends State<TestPage> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Emotion: $_emotion', // Display predicted emotion or '______'
+              'Emotion: $_emotion${_emotionPercentage > 0 ? ' ($_emotionPercentage%)' : ''}', // Display emotion with percentage
               style: GoogleFonts.roboto(
                 fontSize: 16,
                 color: const Color(0xFF333333),

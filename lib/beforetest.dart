@@ -36,8 +36,8 @@ class BeforeTest extends StatelessWidget {
                   Icon(Icons.assignment, size: 80, color: const Color(0xFF333333)),
                   SizedBox(height: 20),
                   _buildBulletPoint("This test will use your camera"),
-                  _buildBulletPoint("This test will take about 3:5 minutes"),
-                  _buildBulletPoint("The test will be a series of questions about your feelings and different situations"),
+                  _buildBulletPoint("This test will be 18 questions and will take about 5:7 minutes"),
+                  _buildBulletPoint("Questions will be about your feelings and different situations"),
                   _buildBulletPoint("Remember this assessment is a preliminary"),
                   SizedBox(height: 30),
                   ElevatedButton(

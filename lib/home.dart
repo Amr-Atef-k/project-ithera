@@ -199,7 +199,7 @@ class HomeScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.air, color: Color(0xFF333333)),
               title: Text(
-                "Breathing Test",
+                "Breathing Exercise",
                 style: GoogleFonts.roboto(
                   fontSize: 16,
                   color: const Color(0xFF333333),
