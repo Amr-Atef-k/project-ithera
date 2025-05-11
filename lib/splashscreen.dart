@@ -42,7 +42,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               child: ClipOval(
                 child: Image.asset(
-                  'assets/avatar.png',
+                  'assets/logo.png',
                   height: 100,
                   width: 100,
                   fit: BoxFit.cover,
@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             SizedBox(height: 20), // Spacing between elements
             Text(
-              'Welcome to IThera',
+              'Welcome to iThera',
               style: TextStyle(
                 fontSize: 24, // Adjust font size as needed
                 color: Colors.black, // Match text color

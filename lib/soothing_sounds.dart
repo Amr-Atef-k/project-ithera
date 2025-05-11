@@ -18,32 +18,32 @@ class _SoothingSoundsScreenState extends State<SoothingSoundsScreen> {
     {
       'name': 'Ocean Waves',
       'path': 'sounds/ocean_waves.mp3',
-      'background': 'assets/ocean.jfif',
+      'background': 'assets/sound-cards/ocean.jfif',
     },
     {
       'name': 'Forest',
       'path': 'sounds/forest_ambience.m4a',
-      'background': 'assets/forest.jfif',
+      'background': 'assets/sound-cards/forest.jfif',
     },
     {
       'name': 'Rainfall',
       'path': 'sounds/rainfall.m4a',
-      'background': 'assets/rain.jpg',
+      'background': 'assets/sound-cards/rain.jpg',
     },
     {
       'name': 'Wind Chimes',
       'path': 'sounds/wind_chimes.m4a',
-      'background': 'assets/chimes.jpg',
+      'background': 'assets/sound-cards/chimes.jpg',
     },
     {
       'name': 'Birds',
       'path': 'sounds/bird_song.m4a',
-      'background': 'assets/bird.jfif',
+      'background': 'assets/sound-cards/bird.jfif',
     },
     {
       'name': 'Fire',
       'path': 'sounds/fire.m4a',
-      'background': 'assets/fire.jpg',
+      'background': 'assets/sound-cards/fire.jpg',
     },
   ];
 

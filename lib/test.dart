@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' show Size;
 import 'package:flutter/material.dart';
@@ -30,12 +31,13 @@ class _TestPageState extends State<TestPage> {
   late CameraController _cameraController; // Controls the front-facing camera
   bool _isCameraInitialized = false; // Tracks camera initialization status
   bool _isControllerDisposed = false; // Tracks if camera controller is disposed
+  ImageFormatGroup? _imageFormatGroup; // Stores the image format group
 
   Interpreter? _interpreter; // TensorFlow Lite interpreter for emotion model
   List<String> _emotionLabels = []; // Stores emotion labels from labels.txt
   String _emotion = '______'; // Stores the predicted emotion
   int _emotionPercentage = 0; // Stores the percentage of the predicted emotion
-  Timer? _frameProcessingTimer; // Timer for processing frames every 0.25 seconds
+  Timer? _frameProcessingTimer; // Timer for processing frames
   bool _isProcessingFrame = false; // Prevents overlapping frame processing
 
   FaceDetector? _faceDetector; // Google ML Kit face detector
@@ -131,14 +133,18 @@ class _TestPageState extends State<TestPage> {
 
   // Initializes the front-facing camera and starts frame processing
   Future<void> _initializeCamera() async {
+    _imageFormatGroup = ImageFormatGroup.jpeg; // Set desired format
     _cameraController = CameraController(
       widget.cameras.firstWhere(
               (camera) => camera.lensDirection == CameraLensDirection.front),
-      ResolutionPreset.high, // Changed to high for better face detection
+      ResolutionPreset.high,
+      imageFormatGroup: _imageFormatGroup, // Use JPEG to avoid YUV issues
     );
 
     try {
       await _cameraController.initialize();
+      await _cameraController.setFocusMode(FocusMode.auto); // Ensure sharp images
+      print('Camera initialized with format: ${_imageFormatGroup.toString()}');
     } catch (e) {
       print('Error initializing camera: $e');
       setState(() {
@@ -153,64 +159,134 @@ class _TestPageState extends State<TestPage> {
         _isCameraInitialized = true; // Update UI once camera is ready
       });
 
-      // Start processing frames every 0.25 seconds
+      // Start processing frames every 500ms (reduced frequency for performance)
       _frameProcessingTimer = Timer.periodic(
-        const Duration(milliseconds: 250), // Changed from 500ms to 250ms
+        const Duration(milliseconds: 500),
             (_) => _processCameraFrame(),
       );
     }
   }
 
+  // Validates input tensor to detect uniform or low-variance data
+  bool _isValidInput(Float32List input) {
+    if (input.isEmpty) return false;
+    final mean = input.reduce((a, b) => a + b) / input.length;
+    final variance =
+        input.map((x) => (x - mean) * (x - mean)).reduce((a, b) => a + b) /
+            input.length;
+    print('Input tensor mean: $mean, variance: $variance');
+    return variance > 0.01; // Arbitrary threshold for sufficient variation
+  }
+
   // Processes a single camera frame for face and emotion detection
   Future<void> _processCameraFrame() async {
     if (_isProcessingFrame || _isControllerDisposed || !mounted || !_isCameraInitialized) {
+      print('Skipping frame: Processing=${_isProcessingFrame}, Disposed=${_isControllerDisposed}, Mounted=$mounted, Initialized=${_isCameraInitialized}');
       return;
     }
 
     _isProcessingFrame = true;
+    final startTime = DateTime.now(); // Track processing time
     try {
-      final image = await _cameraController.takePicture();
-      final bytes = await image.readAsBytes();
-      final img.Image? capturedImage = img.decodeImage(bytes);
-      if (capturedImage == null) {
-        setState(() {
-          _emotion = 'Error decoding image';
-          _hasFace = false;
-          _faceBoundingBox = null;
-        });
-        return;
-      }
+      // Timeout to prevent hangs
+      await Future.any([
+        Future(() async {
+          final image = await _cameraController.takePicture();
+          final bytes = await image.readAsBytes();
 
-      // Create InputImage for face detection
-      final inputImage = InputImage.fromFilePath(image.path);
-      final faces = await _faceDetector!.processImage(inputImage);
+          // Save frame for inspection (optional, can be commented out in production)
+          try {
+            await File('/sdcard/sample_frame.jpg').writeAsBytes(bytes);
+            print('Saved frame to /sdcard/sample_frame.jpg');
+          } catch (e) {
+            print('Error saving frame: $e');
+          }
 
-      if (faces.isEmpty) {
-        setState(() {
-          _hasFace = false;
-          _emotion = '______';
-          _emotionPercentage = 0;
-          _faceBoundingBox = null;
-        });
-        return;
-      }
+          // Decode image
+          final img.Image? capturedImage = img.decodeImage(bytes);
+          if (capturedImage == null) {
+            print('Failed to decode image');
+            setState(() {
+              _emotion = 'Error decoding image';
+              _hasFace = false;
+              _faceBoundingBox = null;
+            });
+            return;
+          }
+          print('Decoded image: width=${capturedImage.width}, height=${capturedImage.height}');
 
-      // Face detected, store bounding box and proceed with emotion detection
-      setState(() {
-        _hasFace = true;
-        _faceBoundingBox = faces.first.boundingBox; // Use the first detected face
-      });
+          // Log sample pixel values
+          final samplePixel = capturedImage.getPixelSafe(100, 100);
+          print('Sample pixel at (100, 100): R=${samplePixel.r}, G=${samplePixel.g}, B=${samplePixel.b}');
 
-      // Resize to 224x224, keep RGB channels
-      final resizedImage = img.copyResize(capturedImage, width: 224, height: 224);
-      final imageBytes = _preprocessImage(resizedImage);
+          // Create InputImage for face detection
+          final inputImage = InputImage.fromFilePath(image.path);
+          final faces = await _faceDetector!.processImage(inputImage);
 
-      // Run emotion inference
-      final result = await _runInference(imageBytes);
-      setState(() {
-        _emotion = result['emotion']!;
-        _emotionPercentage = result['percentage']!;
-      });
+          if (faces.isEmpty) {
+            setState(() {
+              _hasFace = false;
+              _emotion = '______';
+              _emotionPercentage = 0;
+              _faceBoundingBox = null;
+            });
+            print('No faces detected');
+            return;
+          }
+
+          // Select the largest face by bounding box area
+          Face selectedFace = faces.reduce((a, b) {
+            final areaA = a.boundingBox.width * a.boundingBox.height;
+            final areaB = b.boundingBox.width * b.boundingBox.height;
+            return areaA > areaB ? a : b;
+          });
+          if (faces.length > 1) {
+            print('Multiple faces detected (${faces.length}), using largest face');
+          }
+
+          // Face detected, store bounding box
+          setState(() {
+            _hasFace = true;
+            _faceBoundingBox = selectedFace.boundingBox;
+          });
+
+          // Crop image to face region
+          final faceRect = selectedFace.boundingBox;
+          final x = faceRect.left.toInt().clamp(0, capturedImage.width - 1);
+          final y = faceRect.top.toInt().clamp(0, capturedImage.height - 1);
+          final width = faceRect.width.toInt().clamp(1, capturedImage.width - x);
+          final height = faceRect.height.toInt().clamp(1, capturedImage.height - y);
+          print('Cropping face: x=$x, y=$y, width=$width, height=$height');
+
+          final faceImage = img.copyCrop(capturedImage, x: x, y: y, width: width, height: height);
+          print('Cropped image: width=${faceImage.width}, height=${faceImage.height}');
+
+          // Resize to 224x224 for model input
+          final resizedImage = img.copyResize(faceImage, width: 224, height: 224);
+          final imageBytes = _preprocessImage(resizedImage);
+
+          // Validate input tensor
+          if (!_isValidInput(imageBytes)) {
+            print('Invalid input tensor: Uniform or low-variance data');
+            setState(() {
+              _emotion = 'Invalid input';
+              _emotionPercentage = 0;
+            });
+            return;
+          }
+
+          // Run emotion inference
+          final result = await _runInference(imageBytes);
+          setState(() {
+            _emotion = result['emotion']!;
+            _emotionPercentage = result['percentage']!;
+          });
+        }),
+        Future.delayed(Duration(seconds: 2), () => throw TimeoutException('Frame processing timed out')),
+      ]);
+
+      // Log processing time
+      print('Frame processing took: ${DateTime.now().difference(startTime).inMilliseconds}ms');
     } catch (e) {
       print('Error processing frame: $e');
       setState(() {
@@ -230,7 +306,7 @@ class _TestPageState extends State<TestPage> {
     int pixelIndex = 0;
     for (int y = 0; y < 224; y++) {
       for (int x = 0; x < 224; x++) {
-        final pixel = image.getPixel(x, y);
+        final pixel = image.getPixelSafe(x, y);
         // Normalize to [0, 1] for R, G, B channels
         input[pixelIndex++] = pixel.r / 255.0; // Red
         input[pixelIndex++] = pixel.g / 255.0; // Green
@@ -238,7 +314,7 @@ class _TestPageState extends State<TestPage> {
       }
     }
     // Log a sample of input values to check normalization
-    print('Sample input values: ${input.sublist(0, 10).toList()}');
+    print('Sample input values: ${input.sublist(0, 30).toList()}');
     return input;
   }
 

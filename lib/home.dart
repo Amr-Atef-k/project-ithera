@@ -269,7 +269,7 @@ class HomeScreen extends StatelessWidget {
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/image.jpg'),
+            image: AssetImage('assets/background.jpg'),
             fit: BoxFit.cover,
           ),
         ),
@@ -285,7 +285,7 @@ class HomeScreen extends StatelessWidget {
                     Center(
                       child: ClipOval(
                         child: Image.asset(
-                          'assets/avatar.png',
+                          'assets/logo.png',
                           height: 150, // Increased from 100 to 150
                           width: 150, // Increased from 100 to 150
                           fit: BoxFit.cover,

@@ -127,7 +127,7 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
               child: ClipOval(
                 child: Image.asset(
-                  'assets/avatar.png', // User avatar image
+                  'assets/logo.png', // User avatar image
                   height: 140,
                   width: 140,
                   fit: BoxFit.cover,

@@ -11,22 +11,22 @@ class VideosScreen extends StatelessWidget {
     {
       'title': 'Guided Meditation for Anxiety',
       'url': 'https://www.youtube.com/watch?v=O-6f5wQXSu8',
-      'thumbnail': 'assets/1.jpg',
-    },
-    {
-      'title': 'Quick Stress Fix - 5 Minute Sequence',
-      'url': 'https://www.youtube.com/watch?v=4pKly2JojMw',
-      'thumbnail': 'assets/2.jpg',
-    },
-    {
-      'title': 'Understanding Mindfulness',
-      'url': 'https://www.youtube.com/watch?v=w6T02g5hnT4',
-      'thumbnail': 'assets/3.jpg',
+      'thumbnail': 'assets/yt-cards/1.jpg',
     },
     {
       'title': 'Breathing Exercises for Relaxation',
       'url': 'https://www.youtube.com/watch?v=aXItOY0sLRY',
-      'thumbnail': 'assets/4.jpg',
+      'thumbnail': 'assets/yt-cards/2.jpg',
+    },
+    {
+      'title': 'Quick Stress Fix - 5 Minute Sequence',
+      'url': 'https://www.youtube.com/watch?v=4pKly2JojMw',
+      'thumbnail': 'assets/yt-cards/3.jpg',
+    },
+    {
+      'title': 'Understanding Mindfulness',
+      'url': 'https://www.youtube.com/watch?v=w6T02g5hnT4',
+      'thumbnail': 'assets/yt-cards/4.jpg',
     },
   ];
 

@@ -1,10 +1,5 @@
-// Import the Flutter material design package for UI components
 import 'package:flutter/material.dart';
-// Import Google Fonts for custom typography
 import 'package:google_fonts/google_fonts.dart';
-// Import the URL launcher package for opening external links
-import 'package:url_launcher/url_launcher.dart';
-// Import the HomeScreen to access the launchURL method
 import 'home.dart';
 
 // Define the ArticlesScreen widget as a stateless widget

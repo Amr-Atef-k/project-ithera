@@ -103,7 +103,7 @@ class _ChatbotState extends State<Chatbot> {
               ),
               child: CircleAvatar(
                 radius: 50,
-                backgroundImage: AssetImage('assets/avatar.png'),
+                backgroundImage: AssetImage('assets/logo.png'),
                 backgroundColor: Colors.grey[200],
               ),
             ),
