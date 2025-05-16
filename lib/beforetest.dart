@@ -46,7 +46,7 @@ class BeforeTest extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => TestPage(cameras: cameras),
+                          builder: (context) => Test(cameras: cameras),
                         ),
                       );
                     },

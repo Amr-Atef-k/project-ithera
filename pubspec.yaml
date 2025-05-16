@@ -21,7 +21,6 @@ dependencies:
   path_provider: ^2.1.1  # Provides platform-aware locations for storing app-specific files.
   audioplayers: ^5.2.0 # For playing audio files
   tflite_flutter: ^0.11.0
-#  tflite_flutter_helper: ^0.3.3
   image: ^4.2.0
   google_mlkit_face_detection: 0.13.0 # Added for face detection
 
@@ -36,7 +35,7 @@ flutter:
     - assets/logo.png   #logo
     - assets/background.jpg    #background
     - assets/labels.txt   #emotion labels
-    - assets/model.tflite #tflite model
+    - assets/emotion_model.tflite  #emotion_model (73%)
     - assets/sound-cards/ocean.jfif   #6 sound cards
     - assets/sound-cards/forest.jfif
     - assets/sound-cards/rain.jpg
@@ -53,4 +52,3 @@ flutter:
     - assets/yt-cards/2.jpg
     - assets/yt-cards/3.jpg
     - assets/yt-cards/4.jpg
-    - assets/emotion_model.tflite

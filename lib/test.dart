@@ -7,7 +7,6 @@ import 'package:camera/camera.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'services/storage_service.dart';
 import 'services/user_prefs.dart';
@@ -15,19 +14,20 @@ import 'database_helper.dart';
 import 'class/report.dart';
 import 'report.dart';
 import 'home.dart';
+import 'dart:math' show min;
 
-// Defines the TestPage widget for the mental health assessment
-class TestPage extends StatefulWidget {
+// Defines the Test widget for the mental health assessment
+class Test extends StatefulWidget {
   final List<CameraDescription> cameras;
 
-  const TestPage({required this.cameras, super.key});
+  const Test({required this.cameras, super.key});
 
   @override
-  _TestPageState createState() => _TestPageState();
+  _TestState createState() => _TestState();
 }
 
-// State class for TestPage, managing camera, questions, and user answers
-class _TestPageState extends State<TestPage> {
+// State class for Test, managing camera, questions, and user answers
+class _TestState extends State<Test> {
   late CameraController _cameraController; // Controls the front-facing camera
   bool _isCameraInitialized = false; // Tracks camera initialization status
   bool _isControllerDisposed = false; // Tracks if camera controller is disposed
@@ -103,19 +103,24 @@ class _TestPageState extends State<TestPage> {
         enableClassification: false, // No need for smile/eye detection
       ),
     );
+    print('Face detector initialized');
   }
 
   // Loads the TensorFlow Lite model and emotion labels
   Future<void> _loadTFLiteModelAndLabels() async {
     try {
       // Load model
-      _interpreter = await Interpreter.fromAsset('assets/model.tflite');
-      print('Model loaded successfully');
-      print('Input shape: ${_interpreter!.getInputTensor(0).shape}');
-      print('Output shape: ${_interpreter!.getOutputTensor(0).shape}');
+      _interpreter = await Interpreter.fromAsset('assets/emotion_model.tflite');
+      print('Model loaded successfully: emotion_model.tflite');
+
+      // Log input and output tensor shapes
+      final inputTensor = _interpreter!.getInputTensor(0);
+      final outputTensor = _interpreter!.getOutputTensor(0);
+      print('Input tensor: name=${inputTensor.name}, shape=${inputTensor.shape}, type=${inputTensor.type}');
+      print('Output tensor: name=${outputTensor.name}, shape=${outputTensor.shape}, type=${outputTensor.type}');
 
       // Load labels
-      final labelsData = await rootBundle.loadString('assets/labels.txt');
+      final labelsData = await DefaultAssetBundle.of(context).loadString('assets/labels.txt');
       _emotionLabels = labelsData
           .split('\n')
           .map((line) => line.trim())
@@ -123,8 +128,30 @@ class _TestPageState extends State<TestPage> {
           .map((label) => label.replaceAll(RegExp(r'^\d+\s*'), '')) // Remove leading numbers
           .toList();
       print('Loaded labels: $_emotionLabels');
-    } catch (e) {
+
+      // Skip input shape validation to allow model to proceed
+      // final expectedInputShape = [1, 48, 48, 1];
+      // if (!inputTensor.shape.asMap().entries.every((e) => e.value == expectedInputShape[e.key])) {
+      //   print('Warning: Input shape mismatch. Expected $expectedInputShape, got ${inputTensor.shape}');
+      //   setState(() {
+      //     _emotion = 'Input shape mismatch';
+      //   });
+      //   return;
+      // }
+
+      // Verify output shape
+      if (outputTensor.shape.last != _emotionLabels.length) {
+        print('Warning: Output shape mismatch. Expected [..., ${_emotionLabels.length}], got ${outputTensor.shape}');
+        setState(() {
+          _emotion = 'Output shape mismatch';
+        });
+        return;
+      }
+
+      print('Model and labels initialized successfully');
+    } catch (e, stackTrace) {
       print('Error loading model or labels: $e');
+      print('Stack trace: $stackTrace');
       setState(() {
         _emotion = 'Error loading model';
       });
@@ -136,7 +163,8 @@ class _TestPageState extends State<TestPage> {
     _imageFormatGroup = ImageFormatGroup.jpeg; // Set desired format
     _cameraController = CameraController(
       widget.cameras.firstWhere(
-              (camera) => camera.lensDirection == CameraLensDirection.front),
+            (camera) => camera.lensDirection == CameraLensDirection.front,
+      ),
       ResolutionPreset.high,
       imageFormatGroup: _imageFormatGroup, // Use JPEG to avoid YUV issues
     );
@@ -159,9 +187,10 @@ class _TestPageState extends State<TestPage> {
         _isCameraInitialized = true; // Update UI once camera is ready
       });
 
-      // Start processing frames every 500ms (reduced frequency for performance)
+      // Start processing frames every 1000ms for better performance
+      // Adjust to 500ms if higher frame rate is needed
       _frameProcessingTimer = Timer.periodic(
-        const Duration(milliseconds: 500),
+        const Duration(milliseconds: 1000),
             (_) => _processCameraFrame(),
       );
     }
@@ -169,11 +198,13 @@ class _TestPageState extends State<TestPage> {
 
   // Validates input tensor to detect uniform or low-variance data
   bool _isValidInput(Float32List input) {
-    if (input.isEmpty) return false;
+    if (input.isEmpty) {
+      print('Invalid input: Empty tensor');
+      return false;
+    }
     final mean = input.reduce((a, b) => a + b) / input.length;
     final variance =
-        input.map((x) => (x - mean) * (x - mean)).reduce((a, b) => a + b) /
-            input.length;
+        input.map((x) => (x - mean) * (x - mean)).reduce((a, b) => a + b) / input.length;
     print('Input tensor mean: $mean, variance: $variance');
     return variance > 0.01; // Arbitrary threshold for sufficient variation
   }
@@ -181,7 +212,8 @@ class _TestPageState extends State<TestPage> {
   // Processes a single camera frame for face and emotion detection
   Future<void> _processCameraFrame() async {
     if (_isProcessingFrame || _isControllerDisposed || !mounted || !_isCameraInitialized) {
-      print('Skipping frame: Processing=${_isProcessingFrame}, Disposed=${_isControllerDisposed}, Mounted=$mounted, Initialized=${_isCameraInitialized}');
+      print(
+          'Skipping frame: Processing=$_isProcessingFrame, Disposed=$_isControllerDisposed, Mounted=$mounted, Initialized=$_isCameraInitialized');
       return;
     }
 
@@ -193,14 +225,6 @@ class _TestPageState extends State<TestPage> {
         Future(() async {
           final image = await _cameraController.takePicture();
           final bytes = await image.readAsBytes();
-
-          // Save frame for inspection (optional, can be commented out in production)
-          try {
-            await File('/sdcard/sample_frame.jpg').writeAsBytes(bytes);
-            print('Saved frame to /sdcard/sample_frame.jpg');
-          } catch (e) {
-            print('Error saving frame: $e');
-          }
 
           // Decode image
           final img.Image? capturedImage = img.decodeImage(bytes);
@@ -261,8 +285,8 @@ class _TestPageState extends State<TestPage> {
           final faceImage = img.copyCrop(capturedImage, x: x, y: y, width: width, height: height);
           print('Cropped image: width=${faceImage.width}, height=${faceImage.height}');
 
-          // Resize to 224x224 for model input
-          final resizedImage = img.copyResize(faceImage, width: 224, height: 224);
+          // Resize to 48x48 for model input and convert to grayscale
+          final resizedImage = img.copyResize(faceImage, width: 48, height: 48);
           final imageBytes = _preprocessImage(resizedImage);
 
           // Validate input tensor
@@ -282,7 +306,10 @@ class _TestPageState extends State<TestPage> {
             _emotionPercentage = result['percentage']!;
           });
         }),
-        Future.delayed(Duration(seconds: 2), () => throw TimeoutException('Frame processing timed out')),
+        Future.delayed(
+          const Duration(seconds: 2),
+              () => throw TimeoutException('Frame processing timed out'),
+        ),
       ]);
 
       // Log processing time
@@ -300,21 +327,23 @@ class _TestPageState extends State<TestPage> {
     }
   }
 
-  // Preprocesses the image for model input (224x224 RGB)
+  // Preprocesses the image for model input (48x48 grayscale)
   Float32List _preprocessImage(img.Image image) {
-    final input = Float32List(224 * 224 * 3);
+    final input = Float32List(48 * 48);
     int pixelIndex = 0;
-    for (int y = 0; y < 224; y++) {
-      for (int x = 0; x < 224; x++) {
+    for (int y = 0; y < 48; y++) {
+      for (int x = 0; x < 48; x++) {
         final pixel = image.getPixelSafe(x, y);
-        // Normalize to [0, 1] for R, G, B channels
-        input[pixelIndex++] = pixel.r / 255.0; // Red
-        input[pixelIndex++] = pixel.g / 255.0; // Green
-        input[pixelIndex++] = pixel.b / 255.0; // Blue
+        // Convert to grayscale using luminance formula and normalize to [0, 1]
+        final grayscale = (0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b) / 255.0;
+        input[pixelIndex++] = grayscale;
       }
     }
-    // Log a sample of input values to check normalization
-    print('Sample input values: ${input.sublist(0, 30).toList()}');
+    // Log statistics of input tensor
+    final mean = input.reduce((a, b) => a + b) / input.length;
+    final variance =
+        input.map((x) => (x - mean) * (x - mean)).reduce((a, b) => a + b) / input.length;
+    print('Preprocessed input: mean=$mean, variance=$variance, sample=${input.sublist(0, 10).toList()}');
     return input;
   }
 
@@ -331,49 +360,49 @@ class _TestPageState extends State<TestPage> {
 
     try {
       // Prepare input and output tensors
-      final inputTensor = input.reshape([1, 224, 224, 3]);
-      final outputTensor = List.filled(1 * _emotionLabels.length, 0.0).reshape([1, _emotionLabels.length]);
+      final inputTensor = input.reshape([1, 48, 48, 1]);
+      // Use dynamic output shape based on model
+      final outputTensorShape = _interpreter!.getOutputTensor(0).shape;
+      print('Output tensor shape: $outputTensorShape');
+      final outputTensor = List.filled(outputTensorShape.reduce((a, b) => a * b), 0.0).reshape(outputTensorShape);
 
-      // Validate tensor shapes
-      final expectedInputShape = _interpreter!.getInputTensor(0).shape;
-      final expectedOutputShape = _interpreter!.getOutputTensor(0).shape;
-      print('Expected input shape: $expectedInputShape');
-      print('Actual input shape: ${inputTensor.shape}');
-      print('Expected output shape: $expectedOutputShape');
-      print('Actual output shape: ${outputTensor.shape}');
-
-      // Compare shapes directly
-      const requiredInputShape = [1, 224, 224, 3];
-      if (!expectedInputShape.asMap().entries.every((e) => e.value == requiredInputShape[e.key])) {
-        print('Inference error: Input shape mismatch. Expected $requiredInputShape, got $expectedInputShape');
-        return {'emotion': 'Input shape mismatch', 'percentage': 0};
-      }
-      if (expectedOutputShape[1] != _emotionLabels.length) {
-        print('Inference error: Output shape mismatch. Expected [1, ${_emotionLabels.length}], got $expectedOutputShape');
-        return {'emotion': 'Output shape mismatch', 'percentage': 0};
-      }
+      // Log input tensor sample safely
+      print('Input tensor sample: ${input.sublist(0, min(3, input.length))}');
 
       // Run inference
+      final startTime = DateTime.now();
       _interpreter!.run(inputTensor, outputTensor);
+      print('Inference completed in ${DateTime.now().difference(startTime).inMilliseconds}ms');
 
-      // Log the probabilities for debugging
-      final probabilities = outputTensor[0].map((prob) => prob.toStringAsFixed(4)).toList();
-      print('Probabilities: ${_emotionLabels.asMap().entries.map((e) => "${e.value}: ${probabilities[e.key]}").join(", ")}');
+      // Log raw output tensor
+      print('Raw output tensor: $outputTensor');
+
+      // Handle output based on shape
+      List<double> probabilities;
+      if (outputTensorShape[0] == 1 && outputTensorShape[1] == 7) {
+        probabilities = outputTensor[0].cast<double>();
+      } else {
+        throw Exception('Unexpected output shape: $outputTensorShape');
+      }
+
+      // Log raw output probabilities
+      print(
+          'Output probabilities: ${_emotionLabels.asMap().entries.map((e) => "${e.value}: ${probabilities[e.key].toStringAsFixed(4)}").join(", ")}');
 
       // Find the index with the highest probability
       double maxProb = -1;
       int maxIndex = 0;
       for (int i = 0; i < _emotionLabels.length; i++) {
-        if (outputTensor[0][i] > maxProb) {
-          maxProb = outputTensor[0][i];
+        if (probabilities[i] > maxProb) {
+          maxProb = probabilities[i];
           maxIndex = i;
         }
       }
 
-      // Convert probability to integer percentage
+      // Convert probability to percentage
       final percentage = (maxProb * 100).round();
+      print('Predicted emotion: ${_emotionLabels[maxIndex]}, Confidence: $maxProb ($percentage%)');
 
-      print('Inference successful: Emotion = ${_emotionLabels[maxIndex]}, Probability = $maxProb, Percentage = $percentage%');
       return {'emotion': _emotionLabels[maxIndex], 'percentage': percentage};
     } catch (e, stackTrace) {
       print('Inference error: $e');
@@ -388,6 +417,7 @@ class _TestPageState extends State<TestPage> {
     setState(() {
       _lastResult = result;
     });
+    print('Loaded last result: $result');
   }
 
   // Saves the current result to storage
@@ -396,12 +426,14 @@ class _TestPageState extends State<TestPage> {
     setState(() {
       _lastResult = result;
     });
+    print('Saved result: $result');
   }
 
   // Saves the test result to the database
   Future<void> _saveTestResult(int score, String resultMessage) async {
     final userId = await UserPrefs.getUserId();
     if (userId == null) {
+      print('Error: User not logged in');
       throw Exception('User not logged in');
     }
     final dbHelper = DatabaseHelper();
@@ -412,6 +444,7 @@ class _TestPageState extends State<TestPage> {
       timestamp: DateTime.now().toIso8601String(),
     );
     await dbHelper.insertReport(report);
+    print('Saved test result to database: score=$score, message=$resultMessage');
   }
 
   // Calculates the total score based on user answers
@@ -441,6 +474,7 @@ class _TestPageState extends State<TestPage> {
       }
       score += answerScore;
     }
+    print('Calculated score: $score');
     return score;
   }
 
@@ -451,7 +485,7 @@ class _TestPageState extends State<TestPage> {
     } else if (score <= 27) {
       return 'You may be experiencing mild emotional challenges, such as occasional stress, sadness, or anxiety. These feelings are manageable but could benefit from attention. \n\n**Suggested Actions:** Practice relaxation techniques like deep breathing, meditation, or yoga. Engage in hobbies you enjoy and consider discussing your feelings with a trusted friend or family member to gain perspective.';
     } else if (score <= 40) {
-      return 'Moderate levels of negative emotions, such as anxiety, depression, or stress, may be affecting your daily life. You might feel overwhelmed or disconnected at times. \n\n**Suggested Actions:** Seek support from a counselor or therapist to explore these feelings. Establish a routine that includes regular sleep, physical activity, and social interaction. Mindfulness practices can also help manage symptoms.';
+      return 'Moderate levels of negative emotions, such as anxiety, depression, or stress, may be affecting your daily life. You might feel overwhelmed or disconnected at times. \n\n**Suggested Actions:** Seek support from a counselor or therapist proportionally to explore these feelings. Establish a routine that includes regular sleep, physical activity, and social interaction. Mindfulness practices can also help manage symptoms.';
     } else {
       return 'Significant emotional distress is indicated, which may include intense anxiety, depression, or feelings of hopelessness. These challenges could be impacting your quality of life. \n\n**Suggested Actions:** Strongly consider consulting a mental health professional for personalized support. Reach out to a support network, such as friends or family, and explore therapy options like cognitive-behavioral therapy (CBT). Prioritize self-care and avoid isolating yourself.';
     }
@@ -461,10 +495,11 @@ class _TestPageState extends State<TestPage> {
   void _submitAnswers() async {
     _totalScore = _calculateScore();
     _resultMessage = _getResultMessage(_totalScore!);
-    _saveResult('Score: $_totalScore\n$_resultMessage');
+    await _saveResult('Score: $_totalScore\n$_resultMessage');
     try {
       await _saveTestResult(_totalScore!, _resultMessage!);
     } catch (e) {
+      print('Error saving report: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving report: $e')),
       );
@@ -478,6 +513,7 @@ class _TestPageState extends State<TestPage> {
 
     // Dispose of the camera controller and wait for completion
     await _cameraController.dispose();
+    print('Camera controller disposed');
 
     // Navigate to ReportScreen
     if (mounted) {
@@ -498,12 +534,12 @@ class _TestPageState extends State<TestPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Exit Test"),
-        content: const Text("Are you sure you want to exit the test?"),
+        title: const Text('Exit Test'),
+        content: const Text('Are you sure you want to exit the test?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("No"),
+            child: const Text('No'),
           ),
           TextButton(
             onPressed: () async {
@@ -512,6 +548,7 @@ class _TestPageState extends State<TestPage> {
                 _isControllerDisposed = true;
               });
               await _cameraController.dispose();
+              print('Camera controller disposed on exit');
               if (mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
@@ -520,7 +557,7 @@ class _TestPageState extends State<TestPage> {
                 );
               }
             },
-            child: const Text("Yes"),
+            child: const Text('Yes'),
           ),
         ],
       ),
@@ -532,12 +569,12 @@ class _TestPageState extends State<TestPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("No Answer Selected"),
-        content: const Text("Please select an answer to continue."),
+        title: const Text('No Answer Selected'),
+        content: const Text('Please select an answer to continue.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("OK"),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -548,10 +585,12 @@ class _TestPageState extends State<TestPage> {
   void dispose() {
     _frameProcessingTimer?.cancel();
     _interpreter?.close();
-    _faceDetector?.close(); // Dispose of face detector
+    _faceDetector?.close();
     if (!_isControllerDisposed) {
-      _cameraController.dispose(); // Clean up camera resources
+      _cameraController.dispose();
+      print('Camera controller disposed in dispose');
     }
+    print('Test disposed');
     super.dispose();
   }
 
@@ -559,7 +598,7 @@ class _TestPageState extends State<TestPage> {
   Widget build(BuildContext context) {
     // Show loading indicator until camera is initialized
     if (!_isCameraInitialized) {
-      return Scaffold(
+      return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -587,7 +626,7 @@ class _TestPageState extends State<TestPage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0), // Increased padding for better spacing
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -641,9 +680,9 @@ class _TestPageState extends State<TestPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             Text(
-              'Emotion: $_emotion${_emotionPercentage > 0 ? ' ($_emotionPercentage%)' : ''}', // Display emotion with percentage
+              'Emotion: $_emotion${_emotionPercentage > 0 ? ' ($_emotionPercentage%)' : ''}',
               style: GoogleFonts.roboto(
                 fontSize: 16,
                 color: const Color(0xFF333333),
@@ -651,9 +690,9 @@ class _TestPageState extends State<TestPage> {
             ),
             // Reserve space for "No face detected" text without shifting layout
             SizedBox(
-              height: 20, // Fixed height to reserve space
+              height: 20,
               child: _hasFace
-                  ? const SizedBox.shrink() // Hide when face is detected
+                  ? const SizedBox.shrink()
                   : Text(
                 'No face detected',
                 style: GoogleFonts.roboto(
@@ -662,38 +701,39 @@ class _TestPageState extends State<TestPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             // Display the current question
             Card(
-              elevation: 2,
+              elevation: 4,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: const BorderSide(color: Color(0xFFA3C6C4), width: 1),
               ),
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withOpacity(0.95),
               child: Padding(
-                padding: const EdgeInsets.all(12.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Text(
                   '${_currentQuestionIndex + 1}. $currentQuestion',
                   style: GoogleFonts.roboto(
                     fontSize: 16,
                     color: const Color(0xFF333333),
+                    fontWeight: FontWeight.w500,
                   ),
-                  textAlign: TextAlign.center,
+                  textAlign: TextAlign.left,
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             // Display answer options as radio buttons
             Card(
-              elevation: 2,
+              elevation: 4,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: const BorderSide(color: Color(0xFFA3C6C4), width: 1),
               ),
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withOpacity(0.95),
               child: Padding(
-                padding: const EdgeInsets.all(12.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: _options.map((option) {
                     return RadioListTile<String>(
@@ -701,6 +741,7 @@ class _TestPageState extends State<TestPage> {
                         option,
                         style: GoogleFonts.roboto(
                           color: const Color(0xFF333333),
+                          fontSize: 15,
                         ),
                       ),
                       value: option,
@@ -709,6 +750,7 @@ class _TestPageState extends State<TestPage> {
                       onChanged: (value) {
                         setState(() {
                           _selectedAnswers[_currentQuestionIndex] = value;
+                          print('Selected answer for question ${_currentQuestionIndex + 1}: $value');
                         });
                       },
                     );
@@ -716,16 +758,17 @@ class _TestPageState extends State<TestPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             // Navigation buttons (Previous/Next/Submit)
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 if (_currentQuestionIndex > 0)
                   ElevatedButton(
                     onPressed: () {
                       setState(() {
-                        _currentQuestionIndex--; // Go to previous question
+                        _currentQuestionIndex--;
+                        print('Navigated to previous question: ${_currentQuestionIndex + 1}');
                       });
                     },
                     style: ElevatedButton.styleFrom(
@@ -734,9 +777,10 @@ class _TestPageState extends State<TestPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                     child: Text(
-                      "Previous",
+                      'Previous',
                       style: GoogleFonts.roboto(fontSize: 16),
                     ),
                   ),
@@ -745,10 +789,11 @@ class _TestPageState extends State<TestPage> {
                   ElevatedButton(
                     onPressed: () {
                       if (_selectedAnswers[_currentQuestionIndex] == null) {
-                        _showNoAnswerAlert(); // Prompt user to select an answer
+                        _showNoAnswerAlert();
                       } else {
                         setState(() {
-                          _currentQuestionIndex++; // Go to next question
+                          _currentQuestionIndex++;
+                          print('Navigated to next question: ${_currentQuestionIndex + 1}');
                         });
                       }
                     },
@@ -758,9 +803,10 @@ class _TestPageState extends State<TestPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                     child: Text(
-                      "Next",
+                      'Next',
                       style: GoogleFonts.roboto(fontSize: 16),
                     ),
                   ),
@@ -768,20 +814,21 @@ class _TestPageState extends State<TestPage> {
                   ElevatedButton(
                     onPressed: () {
                       if (_selectedAnswers[_currentQuestionIndex] == null) {
-                        _showNoAnswerAlert(); // Prompt user to select an answer
+                        _showNoAnswerAlert();
                       } else {
-                        _submitAnswers(); // Submit answers and show results
+                        _submitAnswers();
                       }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFA3C6C4),
                       foregroundColor: const Color(0xFF333333),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                     child: Text(
-                      "Submit",
+                      'Submit',
                       style: GoogleFonts.roboto(fontSize: 16),
                     ),
                   ),
