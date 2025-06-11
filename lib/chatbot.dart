@@ -14,6 +14,9 @@ class _ChatbotState extends State<Chatbot> {
   String? selectedCategory;
   String? selectedSubOption;
 
+  // Track which messages have been animated
+  final Map<String, bool> _animatedMessages = {};
+
   final List<String> categoryOptions = [
     'I need help with ...',
     'I want to learn about ...',
@@ -269,6 +272,12 @@ class _ChatbotState extends State<Chatbot> {
                           key: ValueKey('${messages[index]['text']}_$index'),
                           text: messages[index]['text']!,
                           isAnswer: !isUserMessage && index == 0,
+                          hasAnimated: _animatedMessages['${messages[index]['text']}_$index'] ?? false,
+                          onAnimationComplete: () {
+                            setState(() {
+                              _animatedMessages['${messages[index]['text']}_$index'] = true;
+                            });
+                          },
                         ),
                       ),
                     ],
@@ -278,9 +287,9 @@ class _ChatbotState extends State<Chatbot> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(4.0),
             child: Container(
-              height: 150,
+              height: 200,
               decoration: BoxDecoration(
                 border: Border.all(
                   color: const Color(0xFFA3C6C4),
@@ -303,6 +312,7 @@ class _ChatbotState extends State<Chatbot> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        elevation: 4,
                       ),
                       child: Text(
                         category,
@@ -339,6 +349,7 @@ class _ChatbotState extends State<Chatbot> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          elevation: 4,
                         ),
                         child: Text(
                           option,
@@ -361,9 +372,16 @@ class _ChatbotState extends State<Chatbot> {
 class AnimatedText extends StatefulWidget {
   final String text;
   final bool isAnswer;
+  final bool hasAnimated;
+  final VoidCallback onAnimationComplete;
 
-  AnimatedText({required this.text, required this.isAnswer, Key? key})
-      : super(key: key);
+  AnimatedText({
+    required this.text,
+    required this.isAnswer,
+    required this.hasAnimated,
+    required this.onAnimationComplete,
+    Key? key,
+  }) : super(key: key);
 
   @override
   _AnimatedTextState createState() => _AnimatedTextState();
@@ -373,12 +391,11 @@ class _AnimatedTextState extends State<AnimatedText> {
   String displayText = '';
   int textIndex = 0;
   Timer? _timer;
-  bool hasAnimated = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.isAnswer && !hasAnimated) {
+    if (widget.isAnswer && !widget.hasAnimated) {
       _animateText();
     } else {
       displayText = widget.text;
@@ -388,11 +405,10 @@ class _AnimatedTextState extends State<AnimatedText> {
   @override
   void didUpdateWidget(AnimatedText oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text && widget.isAnswer && !hasAnimated) {
+    if (oldWidget.text != widget.text && widget.isAnswer && !widget.hasAnimated) {
       setState(() {
         displayText = '';
         textIndex = 0;
-        hasAnimated = false;
       });
       _timer?.cancel();
       _animateText();
@@ -404,7 +420,6 @@ class _AnimatedTextState extends State<AnimatedText> {
   }
 
   void _animateText() {
-    hasAnimated = true;
     _timer = Timer.periodic(Duration(milliseconds: 20), (timer) {
       if (textIndex < widget.text.length) {
         setState(() {
@@ -413,6 +428,7 @@ class _AnimatedTextState extends State<AnimatedText> {
         });
       } else {
         timer.cancel();
+        widget.onAnimationComplete();
       }
     });
   }

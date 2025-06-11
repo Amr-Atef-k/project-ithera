@@ -98,6 +98,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
+  // Custom widget to display password rules with dynamic checkmarks
+  Widget _buildPasswordRule(String rule, bool isValid) {
+    return Row(
+      children: [
+        Text(
+          isValid ? '✓' : '✗',
+          style: TextStyle(
+            fontSize: 16,
+            color: isValid ? Colors.green : Colors.red,
+          ),
+        ),
+        SizedBox(width: 8),
+        Text(rule, style: GoogleFonts.roboto()),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -228,7 +245,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       if (value == null || value.trim().isEmpty) {
                         return 'Please enter your email';
                       }
-                      // Basic email format validation
                       if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
                         return 'Please enter a valid email';
                       }
@@ -256,7 +272,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           color: const Color(0xFF333333),
                         ),
                         onPressed: () {
-                          // Toggle password visibility
                           setState(() {
                             _obscurePassword = !_obscurePassword;
                           });
@@ -264,12 +279,51 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                     obscureText: _obscurePassword,
+                    onChanged: (value) => setState(() {}), // Trigger UI update on change
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Please enter your password';
                       }
+                      if (value.length < 8) {
+                        return 'Password must be at least 8 characters long';
+                      }
+                      if (!RegExp(r'[0-9]').hasMatch(value)) {
+                        return 'Password must include at least 1 number';
+                      }
+                      if (!RegExp(r'[@_.]').hasMatch(value)) {
+                        return 'Password must include at least 1 symbol (@, _, or .)';
+                      }
                       return null;
                     },
+                  ),
+                  SizedBox(height: 20),
+
+                  // Password rules section with dynamic checkmarks
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'How to choose a strong password',
+                        style: GoogleFonts.lora(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF333333),
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      _buildPasswordRule(
+                        'Use at least 8 characters',
+                        _passwordController.text.length >= 8,
+                      ),
+                      _buildPasswordRule(
+                        'Include at least 1 number',
+                        RegExp(r'[0-9]').hasMatch(_passwordController.text),
+                      ),
+                      _buildPasswordRule(
+                        'Include at least 1 symbol (@, _, or .)',
+                        RegExp(r'[@_.]').hasMatch(_passwordController.text),
+                      ),
+                    ],
                   ),
                   SizedBox(height: 20),
 

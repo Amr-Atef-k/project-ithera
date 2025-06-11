@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'home.dart';
 
-// Displays the final test results with score and message
+// Displays the final test results with score, message, and highest emotion
 class ReportScreen extends StatelessWidget {
   final int score;
   final String resultMessage;
+  final String highestEmotion;
+  final int highestEmotionPercentage;
 
   const ReportScreen({
     required this.score,
     required this.resultMessage,
+    required this.highestEmotion,
+    required this.highestEmotionPercentage,
     super.key,
   });
 
@@ -147,6 +151,27 @@ class ReportScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       const Divider(color: Color(0xFFA3C6C4)),
+                      // Highest Emotion Section
+                      Text(
+                        'Dominant Emotion',
+                        style: GoogleFonts.lora(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF333333),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$highestEmotion ($highestEmotionPercentage%)',
+                        style: GoogleFonts.roboto(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFA3C6C4),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(color: Color(0xFFA3C6C4)),
                       // Assessment Section
                       Text(
                         'Assessment',
@@ -184,8 +209,7 @@ class ReportScreen extends StatelessWidget {
                         onPressed: () {
                           Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(
-                                builder: (context) => HomeScreen()),
+                            MaterialPageRoute(builder: (context) => HomeScreen()),
                                 (route) => false,
                           );
                         },
@@ -196,7 +220,9 @@ class ReportScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 12),
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
                         ),
                         child: Text(
                           'Back to Home',
