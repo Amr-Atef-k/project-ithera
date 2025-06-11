@@ -275,100 +275,115 @@ class HomeScreen extends StatelessWidget {
         ),
         child: Container(
           color: const Color(0xFFF9E8E8).withOpacity(0.8),
-          child: Stack(
-            children: [
-              Transform.translate(
-                offset: const Offset(0, -30),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Center(
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/logo.png',
-                          height: 150, // Increased from 100 to 150
-                          width: 150, // Increased from 100 to 150
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+          child: Transform.translate(
+            offset: const Offset(0, -30),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Center(
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/logo.png',
+                      height: 150,
+                      width: 150,
+                      fit: BoxFit.cover,
                     ),
-                    const SizedBox(height: 30),
-                    Container(
-                      width: 250,
-                      height: 300,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFA3C6C4), width: 1),
-                      ),
-                      child: Center(
-                        child: Text(
-                          "info about the application",
-                          style: GoogleFonts.roboto(
-                            fontSize: 16,
-                            color: const Color(0xFF333333),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                Text(
+                  "Your Safe Environment",
+                  style: GoogleFonts.roboto(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF333333),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    "Take the AI-driven assessment to test your well-being, Chat about mental awareness and Explore other tools.",
+                    style: GoogleFonts.roboto(
+                      fontSize: 16,
+                      fontWeight: FontWeight.normal,
+                      color: const Color(0xFF333333),
                     ),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFA3C6C4),
-                        foregroundColor: const Color(0xFF333333),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFA3C6C4),
+                    foregroundColor: const Color(0xFF333333),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    minimumSize: const Size(250, 48), // Increased width for consistency
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => BeforeTest()),
+                    );
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "🧠 ", // Test emoji
+                        style: TextStyle(fontSize: 16),
                       ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => BeforeTest()),
-                        );
-                      },
-                      child: Text(
+                      Text(
                         "TAKE THE TEST",
                         style: GoogleFonts.roboto(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 30),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Positioned(
-                right: 20,
-                bottom: 30,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Chat with Thera",
-                      style: GoogleFonts.roboto(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF333333),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFA3C6C4),
+                    foregroundColor: const Color(0xFF333333),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    minimumSize: const Size(250, 48), // Same width as above
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => Chatbot()),
+                    );
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "💬 ", // Chat emoji
+                        style: TextStyle(fontSize: 16),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    FloatingActionButton(
-                      backgroundColor: const Color(0xFFA3C6C4),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => Chatbot()),
-                        );
-                      },
-                      child: const Icon(Icons.chat, color: Color(0xFF333333)),
-                    ),
-                  ],
+                      Text(
+                        "CHAT WITH THERA",
+                        style: GoogleFonts.roboto(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 30),
+              ],
+            ),
           ),
         ),
       ),
