@@ -120,7 +120,7 @@ class BeforeTest extends StatelessWidget {
                     child: Text(
                       "Give Permission, Start the Test",
                       style: GoogleFonts.roboto(
-                        fontSize: 19,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
