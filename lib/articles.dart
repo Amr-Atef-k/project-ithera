@@ -29,6 +29,26 @@ class ArticlesScreen extends StatelessWidget {
       'description': 'Discover information on anxiety disorders and coping strategies.',
       'url': 'https://www.nimh.nih.gov/health/topics/anxiety-disorders',
     },
+    {
+      'title': 'Bipolar Disorder',
+      'description': 'Understand the symptoms and treatment options for bipolar disorder.',
+      'url': 'https://www.nimh.nih.gov/health/topics/bipolar-disorder',
+    },
+    {
+      'title': 'Post-Traumatic Stress Disorder (PTSD)',
+      'description': 'Learn about PTSD, its causes, and how to seek help.',
+      'url': 'https://www.ptsd.va.gov/understand/what/index.asp',
+    },
+    {
+      'title': 'Eating Disorders',
+      'description': 'Explore types of eating disorders and available treatments.',
+      'url': 'https://www.nationaleatingdisorders.org/what-are-eating-disorders',
+    },
+    {
+      'title': 'Schizophrenia',
+      'description': 'Find out about schizophrenia symptoms, causes, and support.',
+      'url': 'https://www.nimh.nih.gov/health/topics/schizophrenia',
+    },
   ];
 
   // Build method to construct the widget tree
