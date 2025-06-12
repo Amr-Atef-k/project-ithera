@@ -1,14 +1,110 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'home.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+// ArticleViewerScreen to display article in a WebView
+class ArticleViewerScreen extends StatefulWidget {
+  final String articleUrl;
+  final String articleTitle;
+
+  const ArticleViewerScreen({
+    super.key,
+    required this.articleUrl,
+    required this.articleTitle,
+  });
+
+  @override
+  ArticleViewerScreenState createState() => ArticleViewerScreenState();
+}
+
+class ArticleViewerScreenState extends State<ArticleViewerScreen> {
+  late WebViewController _controller;
+  bool _isLoading = true; // Track loading state
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize WebViewController
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFFF9E8E8))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            setState(() {
+              _isLoading = true; // Show loading when page starts
+            });
+          },
+          onPageFinished: (String url) {
+            setState(() {
+              _isLoading = false; // Hide loading when page finishes
+            });
+          },
+          onWebResourceError: (WebResourceError error) {
+            setState(() {
+              _isLoading = false; // Hide loading on error
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to load article. Please check your connection.',
+                  style: GoogleFonts.roboto(
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
+                ),
+                backgroundColor: const Color(0xFF333333),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.articleUrl));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFA3C6C4),
+        foregroundColor: const Color(0xFF333333),
+        title: Text(
+          widget.articleTitle,
+          style: GoogleFonts.lora(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: Container(
+        color: const Color(0xFFF9E8E8).withOpacity(0.8),
+        child: Stack(
+          children: [
+            // WebView content
+            WebViewWidget(controller: _controller),
+            // Loading indicator
+            if (_isLoading)
+              const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA3C6C4)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // Define the ArticlesScreen widget as a stateless widget
 class ArticlesScreen extends StatelessWidget {
   // Constructor with an optional key parameter
-  ArticlesScreen({super.key});
+  const ArticlesScreen({super.key});
 
   // List of articles with title, description, and URL
-  final List<Map<String, String>> articles = [
+  final List<Map<String, String>> articles = const [
     {
       'title': 'Depression',
       'description': 'Learn about the symptoms, causes, and treatments for depression.',
@@ -87,8 +183,18 @@ class ArticlesScreen extends StatelessWidget {
             return Padding(
               padding: const EdgeInsets.only(bottom: 16.0),
               child: InkWell(
-                // Launch the article URL when tapped
-                onTap: () => HomeScreen.launchURL(context, Uri.parse(article['url']!)),
+                // Navigate to ArticleViewerScreen when tapped
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ArticleViewerScreen(
+                        articleUrl: article['url']!,
+                        articleTitle: article['title']!,
+                      ),
+                    ),
+                  );
+                },
                 // Set border radius for tap effect
                 borderRadius: BorderRadius.circular(16),
                 // Animated container for visual effects
@@ -97,10 +203,10 @@ class ArticlesScreen extends StatelessWidget {
                   // Define the container decoration
                   decoration: BoxDecoration(
                     // Gradient background
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       colors: [
-                        const Color(0xFFA3C6C4).withValues(alpha: 0.9),
-                        const Color(0xFFF9E8E8).withValues(alpha: 0.7),
+                        Color(0xFFA3C6C4),
+                        Color(0xFFF9E8E8),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -108,16 +214,16 @@ class ArticlesScreen extends StatelessWidget {
                     // Rounded corners
                     borderRadius: BorderRadius.circular(16),
                     // Shadow effect
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
+                        color: Colors.black26,
                         blurRadius: 8,
-                        offset: const Offset(0, 4),
+                        offset: Offset(0, 4),
                       ),
                     ],
                     // Border styling
                     border: Border.all(
-                      color: const Color(0xFF333333).withValues(alpha: 0.2),
+                      color: Color(0xFF333333).withOpacity(0.2),
                       width: 1,
                     ),
                   ),
@@ -156,7 +262,7 @@ class ArticlesScreen extends StatelessWidget {
                                 article['description']!,
                                 style: GoogleFonts.roboto(
                                   fontSize: 14,
-                                  color: Color(0xFF333333).withValues(alpha: 0.8),
+                                  color: Color(0xFF333333),
                                 ),
                               ),
                             ],
